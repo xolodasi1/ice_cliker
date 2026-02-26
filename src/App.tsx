@@ -8,28 +8,96 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Camera, Mic, Sun, Scissors, Armchair, Zap, Play, 
   TrendingUp, Users, DollarSign, Award, Trophy, Star,
-  ChevronRight, Settings, Youtube, User, Lock, LogOut, Clock, MousePointer2, X, Edit2
+  ChevronRight, Settings, Youtube, User, Lock, LogOut, Clock, MousePointer2, X, Edit2,
+  Coffee, Pizza, Battery, ShoppingCart, Volume2, Monitor
 } from 'lucide-react';
-import { GameState, Upgrade, Milestone } from './types';
-import { UPGRADES, MILESTONES } from './constants';
+import { GameState, Upgrade, Milestone, Food } from './types';
+import { UPGRADES, MILESTONES, FOOD_ITEMS } from './constants';
 
 const ICON_MAP: Record<string, any> = {
-  Camera, Mic, Sun, Scissors, Armchair, Zap, Award, Trophy, Star
+  Camera, Mic, Sun, Scissors, Armchair, Zap, Award, Trophy, Star, Coffee, Pizza
 };
 
 const AVATARS = ['😎', '🤓', '🤖', '👽', '👻', '🤡', '🤠', '🤑', '😈', '😺', '🐼', '🦊', '🦄', '🦖', '🚀', '💎'];
 
+const TRANSLATIONS = {
+  en: {
+    studio: 'Studio', shop: 'Shop', top: 'Top', creatorStudio: 'Creator Studio',
+    subscribers: 'Subscribers', revenue: 'Revenue', energy: 'Energy',
+    totalViews: 'Total Views', perClick: 'Per Click', perSecond: 'Per Second',
+    upgradesGear: 'Upgrades & Gear', snacks: 'Snacks (Energy)', equipment: 'Equipment',
+    globalTop: 'Global Top', subs: 'Subs', time: 'Time', money: 'Money', clicks: 'Clicks',
+    played: 'played', editProfile: 'Edit Profile', username: 'Username', avatar: 'Avatar',
+    saveChanges: 'Save Changes', login: 'Login', createAccount: 'Create Account',
+    noAccount: "Don't have an account? Register", hasAccount: "Already have an account? Login",
+    settings: 'Settings', language: 'Language', volume: 'Sound Volume', brightness: 'Brightness',
+    close: 'Close', loading: 'Loading leaderboard...', you: 'You',
+    serverError: 'Server error. Please try again.',
+    usernameTaken: 'Username already exists or database error',
+    invalidCreds: 'Invalid credentials',
+    missingFields: 'Missing fields'
+  },
+  ru: {
+    studio: 'Студия', shop: 'Магазин', top: 'Топ', creatorStudio: 'Студия Создателя',
+    subscribers: 'Подписчики', revenue: 'Доход', energy: 'Энергия',
+    totalViews: 'Всего просмотров', perClick: 'За клик', perSecond: 'В секунду',
+    upgradesGear: 'Улучшения и Оборудование', snacks: 'Еда (Энергия)', equipment: 'Оборудование',
+    globalTop: 'Глобальный Топ', subs: 'Подп', time: 'Время', money: 'Деньги', clicks: 'Клики',
+    played: 'в игре', editProfile: 'Редактировать профиль', username: 'Имя пользователя', avatar: 'Аватар',
+    saveChanges: 'Сохранить изменения', login: 'Войти', createAccount: 'Создать аккаунт',
+    noAccount: "Нет аккаунта? Зарегистрироваться", hasAccount: "Уже есть аккаунт? Войти",
+    settings: 'Настройки', language: 'Язык', volume: 'Громкость звука', brightness: 'Яркость экрана',
+    close: 'Закрыть', loading: 'Загрузка таблицы лидеров...', you: 'Вы',
+    serverError: 'Ошибка сервера. Попробуйте еще раз.',
+    usernameTaken: 'Имя пользователя уже занято',
+    invalidCreds: 'Неверные данные',
+    missingFields: 'Заполните все поля'
+  }
+};
+
+let audioCtx: AudioContext | null = null;
+const playClickSound = (volume: number) => {
+  if (volume <= 0) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(volume / 100 * 0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {}
+};
+
 export default function App() {
   const [user, setUser] = useState<{username: string, token: string, avatar: string} | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({ username: '', avatar: '' });
   const [profileError, setProfileError] = useState('');
-  const [currentTab, setCurrentTab] = useState<'studio' | 'leaderboard'>('studio');
+  const [currentTab, setCurrentTab] = useState<'studio' | 'upgrades' | 'leaderboard'>('studio');
   const [leaderboardType, setLeaderboardType] = useState<'subscribers' | 'playtime' | 'money' | 'clicks'>('subscribers');
   const [leaderboard, setLeaderboard] = useState<{username: string, subscribers: number, playtime: number, money: number, clicks: number, avatar: string}[]>([]);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authForm, setAuthForm] = useState({username: '', password: ''});
   const [authError, setAuthError] = useState('');
+
+  const [settings, setSettings] = useState<{language: 'en' | 'ru', volume: number, brightness: number}>(() => {
+    const saved = localStorage.getItem('youtuber_settings');
+    if (saved) return JSON.parse(saved);
+    return { language: 'ru', volume: 50, brightness: 100 };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('youtuber_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  const t = TRANSLATIONS[settings.language];
 
   const [state, setState] = useState<GameState>(() => {
     const saved = localStorage.getItem('youtuber_clicker_save');
@@ -37,10 +105,12 @@ export default function App() {
       const parsed = JSON.parse(saved);
       if (parsed.playtime === undefined) parsed.playtime = 0;
       if (parsed.clicks === undefined) parsed.clicks = 0;
+      if (parsed.energy === undefined) parsed.energy = 100;
+      if (parsed.maxEnergy === undefined) parsed.maxEnergy = 100;
       return parsed;
     }
     return {
-      views: 0, subscribers: 0, money: 0, totalViews: 0, upgrades: {}, lastSave: Date.now(), playtime: 0, clicks: 0
+      views: 0, subscribers: 0, money: 0, totalViews: 0, upgrades: {}, lastSave: Date.now(), playtime: 0, clicks: 0, energy: 100, maxEnergy: 100
     };
   });
 
@@ -119,7 +189,7 @@ export default function App() {
     localStorage.removeItem('youtuber_token');
     setUser(null);
     setState({
-      views: 0, subscribers: 0, money: 0, totalViews: 0, upgrades: {}, lastSave: Date.now(), playtime: 0, clicks: 0
+      views: 0, subscribers: 0, money: 0, totalViews: 0, upgrades: {}, lastSave: Date.now(), playtime: 0, clicks: 0, energy: 100, maxEnergy: 100
     });
   };
 
@@ -223,9 +293,10 @@ export default function App() {
         const newMoney = prev.money + (vps / 10) * 0.001;
         const newSubs = prev.subscribers + (vps / 10) * 0.01;
         const newPlaytime = (prev.playtime || 0) + 0.1;
+        const newEnergy = Math.min(prev.maxEnergy || 100, (prev.energy || 0) + 0.1);
         return {
           ...prev,
-          views: newViews, totalViews: newTotalViews, money: newMoney, subscribers: newSubs, playtime: newPlaytime
+          views: newViews, totalViews: newTotalViews, money: newMoney, subscribers: newSubs, playtime: newPlaytime, energy: newEnergy
         };
       });
     }, 100);
@@ -238,6 +309,10 @@ export default function App() {
   }, [state]);
 
   const handleMainClick = (e: React.MouseEvent | React.TouchEvent) => {
+    if ((state.energy || 0) < 1) return;
+
+    playClickSound(settings.volume);
+
     const vpc = getViewsPerClick();
     let x, y;
     if ('touches' in e) {
@@ -260,8 +335,20 @@ export default function App() {
       totalViews: prev.totalViews + vpc,
       money: prev.money + vpc * 0.001,
       subscribers: prev.subscribers + vpc * 0.01,
-      clicks: (prev.clicks || 0) + 1
+      clicks: (prev.clicks || 0) + 1,
+      energy: (prev.energy || 0) - 1
     }));
+  };
+
+  const buyFood = (food: Food) => {
+    if (state.clicks >= food.price && (state.energy || 0) < (state.maxEnergy || 100)) {
+      playClickSound(settings.volume);
+      setState(prev => ({
+        ...prev,
+        clicks: prev.clicks - food.price,
+        energy: Math.min(prev.maxEnergy || 100, (prev.energy || 0) + food.energyRestore)
+      }));
+    }
   };
 
   const buyUpgrade = (upgrade: Upgrade) => {
@@ -364,16 +451,21 @@ export default function App() {
               <p className="text-xs text-zinc-500 font-mono">v1.3.0</p>
             </div>
           </div>
-          <button onClick={logout} className="p-2 rounded-full hover:bg-zinc-800 transition-colors" title="Logout">
-            <LogOut className="w-5 h-5 text-zinc-400 hover:text-red-400" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowSettingsModal(true)} className="p-2 rounded-full hover:bg-zinc-800 transition-colors" title={t.settings}>
+              <Settings className="w-5 h-5 text-zinc-400 hover:text-white" />
+            </button>
+            <button onClick={logout} className="p-2 rounded-full hover:bg-zinc-800 transition-colors" title={t.login}>
+              <LogOut className="w-5 h-5 text-zinc-400 hover:text-red-400" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-zinc-800/50 p-3 rounded-2xl border border-zinc-700/50">
             <div className="flex items-center gap-2 text-zinc-500 mb-1">
               <Users className="w-3 h-3" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Subscribers</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">{t.subscribers}</span>
             </div>
             <div className="text-xl font-bold font-mono text-zinc-100">
               {formatNumber(state.subscribers)}
@@ -382,16 +474,30 @@ export default function App() {
           <div className="bg-zinc-800/50 p-3 rounded-2xl border border-zinc-700/50">
             <div className="flex items-center gap-2 text-zinc-500 mb-1">
               <DollarSign className="w-3 h-3" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Revenue</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">{t.revenue}</span>
             </div>
             <div className="text-xl font-bold font-mono text-emerald-400">
               ${state.money.toFixed(2)}
             </div>
           </div>
         </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+            <span className="flex items-center gap-1"><Battery className="w-3 h-3"/> {t.energy}</span>
+            <span>{Math.floor(state.energy || 0)} / {state.maxEnergy || 100}</span>
+          </div>
+          <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+            <motion.div 
+              className="h-full bg-blue-500"
+              animate={{ width: `${((state.energy || 0) / (state.maxEnergy || 100)) * 100}%` }}
+              transition={{ duration: 0.1 }}
+            />
+          </div>
+        </div>
       </header>
 
-      {currentTab === 'studio' ? (
+      {currentTab === 'studio' && (
         <>
           {/* Main Clicker Area */}
           <main className="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -402,7 +508,7 @@ export default function App() {
                 {formatNumber(state.views)}
               </div>
               <div className="text-sm font-medium text-zinc-500 uppercase tracking-[0.2em]">
-                Total Views
+                {t.totalViews}
               </div>
             </div>
 
@@ -420,11 +526,11 @@ export default function App() {
 
             <div className="mt-12 grid grid-cols-2 gap-8 w-full z-10">
               <div className="text-center">
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Per Click</div>
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">{t.perClick}</div>
                 <div className="text-lg font-mono font-bold text-zinc-300">+{formatNumber(getViewsPerClick())}</div>
               </div>
               <div className="text-center">
-                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Per Second</div>
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">{t.perSecond}</div>
                 <div className="text-lg font-mono font-bold text-zinc-300">+{formatNumber(getViewsPerSecond())}</div>
               </div>
             </div>
@@ -443,16 +549,65 @@ export default function App() {
               ))}
             </AnimatePresence>
           </main>
+        </>
+      )}
 
-          {/* Upgrades Drawer */}
-          <section className="h-1/3 bg-zinc-900 border-t border-zinc-800 p-4 overflow-y-auto z-20">
-            <div className="flex items-center justify-between mb-4 sticky top-0 bg-zinc-900 py-2">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Upgrades & Gear</h2>
-              <div className="text-xs font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full border border-emerald-400/20">
-                ${state.money.toFixed(2)}
+      {currentTab === 'upgrades' && (
+        <main className="flex-1 overflow-y-auto p-4 bg-zinc-950 flex flex-col">
+          <div className="flex items-center gap-3 mb-6 sticky top-0 bg-zinc-950/90 backdrop-blur py-2 z-10">
+            <ShoppingCart className="w-6 h-6 text-emerald-500" />
+            <h2 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">{t.shop}</h2>
+          </div>
+
+          {/* Food Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-400">{t.snacks}</h3>
+              <div className="text-xs font-mono text-blue-400 bg-blue-400/10 px-2 py-1 rounded-full border border-blue-400/20 flex items-center gap-1">
+                <MousePointer2 className="w-3 h-3" /> {Math.floor(state.clicks)}
               </div>
             </div>
+            <div className="space-y-3">
+              {FOOD_ITEMS.map(food => {
+                const canAfford = state.clicks >= food.price && (state.energy || 0) < (state.maxEnergy || 100);
+                const Icon = ICON_MAP[food.icon] || Coffee;
+                return (
+                  <button
+                    key={food.id}
+                    onClick={() => buyFood(food)}
+                    disabled={!canAfford}
+                    className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-all ${
+                      canAfford 
+                        ? 'bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800 active:scale-[0.98]' 
+                        : 'bg-zinc-900/50 border-zinc-800 opacity-60 grayscale'
+                    }`}
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${canAfford ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-zinc-200">{food.name}</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 line-clamp-1">{food.description}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1"><MousePointer2 className="w-3 h-3"/> {food.price}</span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
+          {/* Upgrades Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-400">{t.equipment}</h3>
+              <div className="text-xs font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full border border-emerald-400/20 flex items-center gap-1">
+                <DollarSign className="w-3 h-3" /> {state.money.toFixed(2)}
+              </div>
+            </div>
             <div className="space-y-3">
               {UPGRADES.map(upgrade => {
                 const level = state.upgrades[upgrade.id] || 0;
@@ -491,14 +646,16 @@ export default function App() {
                 );
               })}
             </div>
-          </section>
-        </>
-      ) : (
-        /* Leaderboard Area */
+          </div>
+        </main>
+      )}
+
+      {/* Leaderboard Area */}
+      {currentTab === 'leaderboard' && (
         <main className="flex-1 overflow-y-auto p-4 bg-zinc-950 flex flex-col">
           <div className="flex items-center gap-3 mb-4 sticky top-0 bg-zinc-950/90 backdrop-blur py-2 z-10">
             <Trophy className="w-6 h-6 text-yellow-500" />
-            <h2 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">Global Top</h2>
+            <h2 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">{t.globalTop}</h2>
           </div>
 
           <div className="flex bg-zinc-900 rounded-xl p-1 mb-4 shrink-0">
@@ -506,31 +663,31 @@ export default function App() {
               onClick={() => setLeaderboardType('subscribers')}
               className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${leaderboardType === 'subscribers' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Subs
+              {t.subs}
             </button>
             <button 
               onClick={() => setLeaderboardType('playtime')}
               className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${leaderboardType === 'playtime' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Time
+              {t.time}
             </button>
             <button 
               onClick={() => setLeaderboardType('money')}
               className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${leaderboardType === 'money' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Money
+              {t.money}
             </button>
             <button 
               onClick={() => setLeaderboardType('clicks')}
               className={`flex-1 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${leaderboardType === 'clicks' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Clicks
+              {t.clicks}
             </button>
           </div>
           
           <div className="space-y-3 flex-1 overflow-y-auto pb-20">
             {leaderboard.length === 0 ? (
-              <div className="text-center text-zinc-500 py-10">Loading leaderboard...</div>
+              <div className="text-center text-zinc-500 py-10">{t.loading}</div>
             ) : (
               leaderboard.map((u, index) => (
                 <div key={index} className={`flex items-center gap-3 p-4 rounded-2xl border ${index < 3 ? 'bg-zinc-900/80 border-zinc-700' : 'bg-zinc-900/40 border-zinc-800'}`}>
@@ -546,15 +703,15 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-zinc-200 truncate">{u.username}</div>
                     <div className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                      {leaderboardType === 'subscribers' && <><Users className="w-3 h-3" /> {formatNumber(u.subscribers)} subs</>}
-                      {leaderboardType === 'playtime' && <><Clock className="w-3 h-3" /> {formatTime(u.playtime)} played</>}
+                      {leaderboardType === 'subscribers' && <><Users className="w-3 h-3" /> {formatNumber(u.subscribers)} {t.subs.toLowerCase()}</>}
+                      {leaderboardType === 'playtime' && <><Clock className="w-3 h-3" /> {formatTime(u.playtime)} {t.played}</>}
                       {leaderboardType === 'money' && <><DollarSign className="w-3 h-3" /> ${formatNumber(u.money)}</>}
-                      {leaderboardType === 'clicks' && <><MousePointer2 className="w-3 h-3" /> {formatNumber(u.clicks)} clicks</>}
+                      {leaderboardType === 'clicks' && <><MousePointer2 className="w-3 h-3" /> {formatNumber(u.clicks)} {t.clicks.toLowerCase()}</>}
                     </div>
                   </div>
                   {u.username === user.username && (
                     <div className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-2 py-1 rounded-full shrink-0">
-                      You
+                      {t.you}
                     </div>
                   )}
                 </div>
@@ -566,10 +723,10 @@ export default function App() {
 
       {/* Profile Edit Modal */}
       {showProfileModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">Edit Profile</h3>
+              <h3 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">{t.editProfile}</h3>
               <button onClick={() => setShowProfileModal(false)} className="p-2 rounded-full hover:bg-zinc-800 transition-colors">
                 <X className="w-5 h-5 text-zinc-500 hover:text-white" />
               </button>
@@ -578,7 +735,7 @@ export default function App() {
             {profileError && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-xl text-red-500 text-sm text-center">{profileError}</div>}
             
             <div className="mb-6">
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Username</label>
+              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">{t.username}</label>
               <input 
                 type="text" 
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-zinc-100 focus:outline-none focus:border-red-500 transition-colors"
@@ -589,7 +746,7 @@ export default function App() {
             </div>
 
             <div className="mb-6">
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Avatar</label>
+              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">{t.avatar}</label>
               <div className="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto p-1">
                 {AVATARS.map(a => (
                   <button 
@@ -609,8 +766,46 @@ export default function App() {
               onClick={handleSaveProfile}
               className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors"
             >
-              Save Changes
+              {t.saveChanges}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal (In-Game) */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-zinc-100 uppercase tracking-widest">{t.settings}</h3>
+              <button onClick={() => setShowSettingsModal(false)} className="p-2 rounded-full hover:bg-zinc-800 transition-colors">
+                <X className="w-5 h-5 text-zinc-500 hover:text-white" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">{t.language}</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setSettings({...settings, language: 'ru'})} className={`flex-1 py-2 rounded-xl font-bold transition-colors ${settings.language === 'ru' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Русский</button>
+                  <button onClick={() => setSettings({...settings, language: 'en'})} className={`flex-1 py-2 rounded-xl font-bold transition-colors ${settings.language === 'en' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}>English</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  <Volume2 className="w-4 h-4" /> {t.volume}: {settings.volume}%
+                </label>
+                <input type="range" min="0" max="100" value={settings.volume} onChange={(e) => setSettings({...settings, volume: parseInt(e.target.value)})} className="w-full accent-red-500" />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  <Monitor className="w-4 h-4" /> {t.brightness}: {settings.brightness}%
+                </label>
+                <input type="range" min="20" max="100" value={settings.brightness} onChange={(e) => setSettings({...settings, brightness: parseInt(e.target.value)})} className="w-full accent-red-500" />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -622,14 +817,21 @@ export default function App() {
           className={`flex flex-col items-center gap-1 transition-colors ${currentTab === 'studio' ? 'text-red-500' : 'text-zinc-600 hover:text-zinc-400'}`}
         >
           <Play className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Studio</span>
+          <span className="text-[10px] font-bold uppercase tracking-tighter">{t.studio}</span>
+        </button>
+        <button 
+          onClick={() => setCurrentTab('upgrades')}
+          className={`flex flex-col items-center gap-1 transition-colors ${currentTab === 'upgrades' ? 'text-emerald-500' : 'text-zinc-600 hover:text-zinc-400'}`}
+        >
+          <ShoppingCart className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">{t.shop}</span>
         </button>
         <button 
           onClick={() => setCurrentTab('leaderboard')}
-          className={`flex flex-col items-center gap-1 transition-colors ${currentTab === 'leaderboard' ? 'text-red-500' : 'text-zinc-600 hover:text-zinc-400'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${currentTab === 'leaderboard' ? 'text-yellow-500' : 'text-zinc-600 hover:text-zinc-400'}`}
         >
           <Trophy className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Top</span>
+          <span className="text-[10px] font-bold uppercase tracking-tighter">{t.top}</span>
         </button>
       </nav>
     </div>

@@ -18,6 +18,17 @@ export interface GameState {
   lastSave: number;
   playtime: number;
   clicks: number;
+  energy: number;
+  maxEnergy: number;
+}
+
+export interface Food {
+  id: string;
+  name: string;
+  description: string;
+  price: number; // in clicks
+  energyRestore: number;
+  icon: string;
 }
 
 export interface Milestone {

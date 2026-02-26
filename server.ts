@@ -18,7 +18,7 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN playtime REAL DEFAULT 0'); } catch (e) {}
 try { db.exec('ALTER TABLE users ADD COLUMN money REAL DEFAULT 0'); } catch (e) {}
 try { db.exec('ALTER TABLE users ADD COLUMN clicks INTEGER DEFAULT 0'); } catch (e) {}
-try { db.exec('ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT "😎"'); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT '😎'"); } catch (e) {}
 
 async function startServer() {
   const app = express();
@@ -44,8 +44,9 @@ async function startServer() {
       const token = crypto.randomUUID();
       db.prepare('INSERT INTO users (username, password, token, avatar) VALUES (?, ?, ?, ?)').run(username, password, token, '😎');
       res.json({ token, username, avatar: '😎' });
-    } catch (e) {
-      res.status(400).json({ error: 'Username already exists' });
+    } catch (e: any) {
+      console.error('Register error:', e);
+      res.status(400).json({ error: 'Username already exists or database error' });
     }
   });
 

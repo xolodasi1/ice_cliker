@@ -1,4 +1,31 @@
-import { Upgrade, Milestone } from './types';
+import { Upgrade, Milestone, Food } from './types';
+
+export const FOOD_ITEMS: Food[] = [
+  {
+    id: 'coffee',
+    name: 'Coffee',
+    description: 'Restores 20 Energy',
+    price: 50,
+    energyRestore: 20,
+    icon: 'Coffee',
+  },
+  {
+    id: 'energy_drink',
+    name: 'Energy Drink',
+    description: 'Restores 50 Energy',
+    price: 100,
+    energyRestore: 50,
+    icon: 'Zap',
+  },
+  {
+    id: 'pizza',
+    name: 'Pizza Slice',
+    description: 'Restores 100 Energy',
+    price: 200,
+    energyRestore: 100,
+    icon: 'Pizza',
+  }
+];
 
 export const UPGRADES: Upgrade[] = [
   {
